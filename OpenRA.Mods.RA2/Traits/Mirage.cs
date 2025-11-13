@@ -47,7 +47,7 @@ namespace OpenRA.Mods.RA2.Traits
 				if (!mirage.IsMirage || self.Owner.IsAlliedWith(self.World.RenderPlayer))
 					return self.Owner;
 
-				return self.World.Players.First(p => p.InternalName == mirage.Info.EffectiveOwner);
+				return mirage.CachedEffectiveOwner;
 			}
 		}
 	}
@@ -114,7 +114,11 @@ namespace OpenRA.Mods.RA2.Traits
 		public bool Disguised { get { return IsMirage; } }
 
 		public ActorInfo ActorType { get; }
-		public Player Owner { get { return IsMirage ? self.World.Players.First(p => p.InternalName == Info.EffectiveOwner) : null; } }
+
+		// Cached to avoid repeated LINQ queries over Players collection
+		public Player CachedEffectiveOwner { get; private set; }
+
+		public Player Owner { get { return IsMirage ? CachedEffectiveOwner : null; } }
 
 		public Mirage(ActorInitializer init, MirageInfo info)
 			: base(info)
@@ -122,11 +126,19 @@ namespace OpenRA.Mods.RA2.Traits
 			self = init.Self;
 			remainingTime = info.InitialDelay;
 
-			var targets = self.World.ActorsWithTrait<MirageTarget>().Distinct();
+			// Cache the effective owner player to avoid repeated LINQ queries
+			CachedEffectiveOwner = self.World.Players.FirstOrDefault(p => p.InternalName == info.EffectiveOwner);
+
+			// Removed unnecessary Distinct() - ActorInfo references are already unique
+			var targets = self.World.ActorsWithTrait<MirageTarget>();
 			targetTypes = targets.Select(a => a.Actor.Info).ToArray();
 
 			if (targetTypes.Length == 0 && info.DefaultTargetTypes != null)
-				targetTypes = self.World.Map.Rules.Actors.Where(a => info.DefaultTargetTypes.Contains(a.Key)).Select(a => a.Value).ToArray();
+			{
+				// Use HashSet for O(1) lookups instead of O(n) Contains on array
+				var typeSet = new System.Collections.Generic.HashSet<string>(info.DefaultTargetTypes);
+				targetTypes = self.World.Map.Rules.Actors.Where(a => typeSet.Contains(a.Key)).Select(a => a.Value).ToArray();
+			}
 
 			ActorType = targetTypes.RandomOrDefault(self.World.SharedRandom);
 		}
