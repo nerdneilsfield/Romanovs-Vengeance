@@ -102,7 +102,7 @@ vlad:
 	Mobile:
 		Speed: 135
 	RevealsShroud:
-		Range: 8c0
+		Range: 48c0
 	WithVoxelBody@FULL:
 		RequiresCondition: loaded >= 2
 	-WithVoxelBody@FULL-RADBOMBS:

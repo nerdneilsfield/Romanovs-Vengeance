@@ -124,6 +124,8 @@ eins:
 		Name: actor-eins.name
 	Voiced:
 		VoiceSet: EinsteinVoice
+	RevealsShroud:
+		Range: 48c0
 	-Wanders:
 	WithInfantryBody:
 		-DefaultAttackSequence:
