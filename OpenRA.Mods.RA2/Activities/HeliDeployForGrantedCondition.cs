@@ -55,10 +55,25 @@ namespace OpenRA.Mods.RA2.Activities
 		public override bool Tick(Actor self)
 		{
 			if (IsCanceling || (deploy.DeployState != DeployState.Deployed && moving))
+			{
+				// Ensure all child activities are properly cancelled and can clean up their state
+				Cancel(self);
 				return true;
+			}
 
 			QueueChild(new HeliDeployInner(self, deploy));
 			return true;
+		}
+
+		protected override void OnActorDispose(Actor self)
+		{
+			// Defensive cleanup: Ensure aircraft influence is removed if activity is aborted
+			// This catches edge cases where Cancel() might not have been called or child activities
+			// were interrupted before they could clean up properly
+			if (aircraft.HasInfluence())
+				aircraft.RemoveInfluence();
+
+			base.OnActorDispose(self);
 		}
 	}
 
