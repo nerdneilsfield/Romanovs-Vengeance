@@ -159,51 +159,73 @@ namespace OpenRA.Mods.RA2.Traits
 
 		void INotifyDamage.Damaged(Actor self, AttackInfo e)
 		{
-			if (Infector != null)
+			// Early exit: no infector present
+			if (Infector == null)
+				return;
+
+			// Cache commonly accessed Infector properties to avoid repeated Tuple access
+			var infectorActor = Infector.Item1;
+			var infectorInfo = Infector.Item3;
+
+			if (e.Damage.DamageTypes.Overlaps(Info.KillInfectorDamageTypes))
+				RemoveInfector(self, self.CenterPosition, true, e);
+			else if (e.Damage.DamageTypes.Overlaps(Info.RemoveInfectorDamageTypes))
+				RemoveInfector(self, self.CenterPosition, false, e);
+			else if (e.Attacker != infectorActor && e.Damage.DamageTypes.Overlaps(infectorInfo.SuppressionDamageType))
 			{
-				if (e.Damage.DamageTypes.Overlaps(Info.KillInfectorDamageTypes))
-					RemoveInfector(self, self.CenterPosition, true, e);
-				else if (e.Damage.DamageTypes.Overlaps(Info.RemoveInfectorDamageTypes))
-					RemoveInfector(self, self.CenterPosition, false, e);
-				else if (e.Attacker != Infector.Item1 && e.Damage.DamageTypes.Overlaps(Infector.Item3.SuppressionDamageType))
-				{
-					killInfectorOnDeath |= Infector.Item3.SuppressionDamageThreshold > 0 && e.Damage.Value > Infector.Item3.SuppressionDamageThreshold;
+				// Check thresholds efficiently - short-circuit evaluation
+				var suppressionDamageThreshold = infectorInfo.SuppressionDamageThreshold;
+				if (suppressionDamageThreshold > 0 && e.Damage.Value > suppressionDamageThreshold)
+					killInfectorOnDeath = true;
 
-					dealtDamage += e.Damage.Value;
-					killInfectorOnDeath |= Infector.Item3.SuppressionSumThreshold > 0 && dealtDamage > Infector.Item3.SuppressionSumThreshold;
+				dealtDamage += e.Damage.Value;
+				var suppressionSumThreshold = infectorInfo.SuppressionSumThreshold;
+				if (suppressionSumThreshold > 0 && dealtDamage > suppressionSumThreshold)
+					killInfectorOnDeath = true;
 
-					suppressionCount++;
-					killInfectorOnDeath |= Infector.Item3.SuppressionCountThreshold > 0 && suppressionCount > Infector.Item3.SuppressionCountThreshold;
-				}
+				suppressionCount++;
+				var suppressionCountThreshold = infectorInfo.SuppressionCountThreshold;
+				if (suppressionCountThreshold > 0 && suppressionCount > suppressionCountThreshold)
+					killInfectorOnDeath = true;
 			}
 		}
 
 		void INotifyKilled.Killed(Actor self, AttackInfo e)
 		{
-			if (Infector != null)
-			{
-				var shdt = Infector.Item3.SurviveHostDamageTypes;
-				var kill = killInfectorOnDeath || (!shdt.IsEmpty && !shdt.Overlaps(e.Damage.DamageTypes));
-				RemoveInfector(self, self.CenterPosition, kill, e);
-			}
+			// Early exit: no infector present
+			if (Infector == null)
+				return;
+
+			var shdt = Infector.Item3.SurviveHostDamageTypes;
+			var kill = killInfectorOnDeath || (!shdt.IsEmpty && !shdt.Overlaps(e.Damage.DamageTypes));
+			RemoveInfector(self, self.CenterPosition, kill, e);
 		}
 
 		void ITick.Tick(Actor self)
 		{
-			if (!IsTraitDisabled && Infector != null)
-			{
-				if (--Ticks < 0)
-				{
-					var damage = Util.ApplyPercentageModifiers(Infector.Item3.Damage, FirepowerMultipliers);
-					health.InflictDamage(self, Infector.Item1, new Damage(damage, Infector.Item3.DamageTypes), false);
+			// Early exit: trait disabled or no infector
+			if (IsTraitDisabled || Infector == null)
+				return;
 
-					Ticks = Infector.Item3.DamageInterval;
-				}
+			if (--Ticks < 0)
+			{
+				// Cache Infector properties to avoid repeated Tuple field access
+				var infectorActor = Infector.Item1;
+				var infectorInfo = Infector.Item3;
+
+				var damage = Util.ApplyPercentageModifiers(infectorInfo.Damage, FirepowerMultipliers);
+				health.InflictDamage(self, infectorActor, new Damage(damage, infectorInfo.DamageTypes), false);
+
+				Ticks = infectorInfo.DamageInterval;
 			}
 		}
 
 		void IOnSuccessfulTeleportRA2.OnSuccessfulTeleport(string type, WPos oldPos, WPos newPos)
 		{
+			// Early exit: no removal teleport types configured or no infector
+			if (Info.RemoveInfectorTeleportTypes == null || Infector == null)
+				return;
+
 			if (Info.RemoveInfectorTeleportTypes.Contains(type))
 				RemoveInfector(self, oldPos, false, null);
 		}
