@@ -3,7 +3,7 @@
 # This should not be called manually
 
 command -v curl >/dev/null 2>&1 || command -v wget > /dev/null 2>&1 || { echo >&2 "The OpenRA mod template requires curl or wget."; exit 1; }
-command -v python >/dev/null 2>&1 || { echo >&2 "The OpenRA mod template requires python."; exit 1; }
+command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1 || { echo >&2 "The OpenRA mod template requires python."; exit 1; }
 
 require_variables() {
 	missing=""
@@ -17,7 +17,8 @@ require_variables() {
 	fi
 }
 
-TEMPLATE_LAUNCHER=$(python -c "import os; print(os.path.realpath('$0'))")
+PYTHON_CMD=$(command -v python || command -v python3)
+TEMPLATE_LAUNCHER=$($PYTHON_CMD -c "import os; print(os.path.realpath('$0'))")
 TEMPLATE_ROOT=$(dirname "${TEMPLATE_LAUNCHER}")
 
 # shellcheck source=mod.config
