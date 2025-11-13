@@ -70,6 +70,10 @@ namespace OpenRA.Mods.RA2.Traits
 		[Desc("Should the aircraft automatically take off after undeploying?")]
 		public readonly bool TakeOffOnUndeploy = true;
 
+		[Desc("Maximum radius in cells to search for a valid landing cell when the current one is blocked.",
+			"Set to 0 or a negative value to fall back to searching the entire map (legacy behaviour).")]
+		public readonly int LandingSearchRadius = 20;
+
 		[VoiceReference]
 		public readonly string DeployVoice = "Action";
 
