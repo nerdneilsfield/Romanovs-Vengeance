@@ -55,6 +55,11 @@ namespace OpenRA.Mods.RA2.Activities
 			if (deploy.DeployState == DeployState.Undeployed && deploy.Info.Facing != -1 && canTurn && !moving)
 				QueueChild(new Turn(self, WAngle.FromFacing(deploy.Info.Facing)));
 
+			// Only queue Land activity if the aircraft is actually airborne
+		// If already grounded (has influence or below min altitude), skip landing to avoid duplicate influence
+		var grounded = aircraft.HasInfluence()
+			|| self.World.Map.DistanceAboveTerrain(aircraft.CenterPosition) <= new WDist(aircraft.Info.MinAirborneAltitude);
+		if (!grounded)
 			QueueChild(new Land(self));
 		}
 
